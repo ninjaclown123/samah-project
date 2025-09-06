@@ -3,18 +3,20 @@ import { PlayerPawn } from './playerPawn.js';
 import { PlayerController } from './playerController.js';
 
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.6, 5);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+renderer.domElement.addEventListener('click', () => {
+    renderer.domElement.requestPointerLock()
+})
+
 // Setup player
 const playerPawn = new PlayerPawn();
 scene.add(playerPawn.object);
 
-const playerController = new PlayerController(playerPawn, camera);
+const playerController = new PlayerController(playerPawn, renderer.domElement);
 
 // Sample object to view
 const cube = new THREE.Mesh(
@@ -31,7 +33,15 @@ function animate() {
     lastTime = now;
 
     playerController.update(deltaTime);
-    renderer.render(scene, camera);
+
+    renderer.render(scene, playerPawn.camera);
     requestAnimationFrame(animate);
 }
 animate();
+
+window.addEventListener('resize', () => {
+    playerPawn.camera.aspect = window.innerWidth / window.innerHeight;
+    playerPawn.camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+

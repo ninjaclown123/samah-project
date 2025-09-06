@@ -1,64 +1,77 @@
 import * as THREE from 'three';
 
-
 export class PlayerController {
-    constructor(pawn, camera) {
-        this.pawn = pawn;
-        this.camera = camera;
-        this.keys = {};
+  constructor(pawn, domElement) {
+    this.pawn = pawn;
+    this.domElement = domElement;
 
-        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    //keyboard
+    this.keys = {};
+    this.speed = 2;
 
-        // Create yaw and pitch containers
-        this.yawObject = new THREE.Object3D();
-        this.pitchObject = new THREE.Object3D();
+    //mouse
+    this.sensitivity = 0.002;
+    this.pitch = 0;
 
-        // Nest camera inside pitchObject
-        this.pitchObject.add(this.camera);
+    window.addEventListener('keydown', (e) => this.onKeyDown(e), false);
+    window.addEventListener('keyup', (e) => this.onKeyUp(e), false);
 
-        // Nest pitchObject inside yawObject
-        this.yawObject.add(this.pitchObject);
+    window.addEventListener('mousemove', (e) => this.onMouseMove(e));
 
-        // Add yawObject to the scene (not the camera directly!)
-        scene.add(this.yawObject);
+  }
 
-        // Track pitch separately for clamping
-        this.pitch = 0;
+  onKeyDown(event) {
+    this.keys[event.code] = true;
+  }
 
-        // Pointer lock
-        document.body.addEventListener('click', () => {
-            document.body.requestPointerLock();
-        });
+  onKeyUp(event) {
+    this.keys[event.code] = false;
+  }
+
+  update(deltaTime) {
+    const direction = new THREE.Vector3();
+
+
+    if (this.keys['KeyW']) direction.z -= 1;
+    if (this.keys['KeyS']) direction.z += 1;
+    if (this.keys['KeyA']) direction.x += 1;
+    if (this.keys['KeyD']) direction.x -= 1;
+
+    const yaw = this.pawn.object.rotation.y;
+
+    // Forward: (cos(yaw), 0, sin(yaw))
+    const forward = new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+
+    // Right: cross product with world up (0,1,0)
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+
+
+    // Normalize direction to avoid faster diagonal movement
+    let movement = forward.clone().multiplyScalar(direction.z)
+      .add(right.clone().multiplyScalar(direction.x));
+
+    if (movement.length() > 0) movement.normalize();
+    movement.multiplyScalar(this.speed * deltaTime);
+
+    this.pawn.setVelocity(movement);
+
+    this.pawn.update(deltaTime);
+  }
+
+  onMouseMove(event) {
+
+    if (document.pointerLockElement === this.domElement) {
+      const yawDelta = -event.movementX * this.sensitivity;
+      const pitchDelta = -event.movementY * this.sensitivity;
+
+      this.pawn.object.rotation.y += yawDelta;
+
+      this.pitch += pitchDelta;
+      const pi_2 = Math.PI / 2;
+      this.pitch = Math.max(-pi_2, Math.min(pi_2, this.pitch));
+      this.pawn.camera.rotation.x = this.pitch;
+
     }
-
-    update(deltaTime) {
-        let direction = new THREE.Vector3();
-
-        // Get the horizontal (XZ) forward direction of the camera
-        const forward = new THREE.Vector3();
-        this.camera.getWorldDirection(forward);
-        forward.y = 0;
-        forward.normalize();
-
-        // Right vector is perpendicular to forward and up
-        const right = new THREE.Vector3();
-        right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-
-        // Apply movement inputs
-        if (this.keys['w']) direction.add(forward);
-        if (this.keys['s']) direction.sub(forward);
-        if (this.keys['a']) direction.sub(right);
-        if (this.keys['d']) direction.add(right);
-
-        // Normalize final direction
-        if (direction.lengthSq() > 0) {
-            direction.normalize(); // ✅ No need to apply rotation again
-        }
-
-        this.pawn.setVelocity(direction);
-        this.pawn.update(deltaTime);
-        this.camera.position.copy(this.pawn.getPosition());
-    }
-
-
+  }
 }
